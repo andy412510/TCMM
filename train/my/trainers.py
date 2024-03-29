@@ -5,12 +5,13 @@ from torchvision import transforms
 
 
 class Trainer(object):
-    def __init__(self, encoder, memory=None):
+    def __init__(self, encoder, memory=None, feature_memory=None):
         super(Trainer, self).__init__()
         self.encoder = encoder
         self.memory = memory
+        self.feature_memory = feature_memory
 
-    def train(self, epoch, data_loader, optimizer, print_freq=10, train_iters=400):
+    def train(self, epoch, data_loader, optimizer, k, index_dic, print_freq=10, train_iters=400):
         self.encoder.train()
 
         batch_time = AverageMeter()
@@ -24,10 +25,15 @@ class Trainer(object):
             data_time.update(time.time() - end)
 
             # process inputs
-            inputs, labels, indexes = self._parse_data(inputs)
+            inputs, labels, indexes, path_list = self._parse_data(inputs)
+            # correct index
+            for j in range(len(path_list)):
+                file_path = path_list[j]
+                file_name = file_path.split('/')[-1]
+                indexes[j] = index_dic[file_name]
             # forward
             f_out = self._forward(inputs)
-            loss = self.memory(f_out, labels)
+            loss = self.memory(f_out, labels, indexes, self.feature_memory, k)
 
             optimizer.zero_grad()
             loss.backward()
@@ -50,8 +56,8 @@ class Trainer(object):
                               losses.val, losses.avg))
 
     def _parse_data(self, inputs):
-        imgs, fname, pids, _, indexes = inputs
-        return imgs.cuda(), pids.cuda(), indexes.cuda()
+        imgs, path_list, pids, _, indexes = inputs
+        return imgs.cuda(), pids.cuda(), indexes.cuda(), path_list
 
     def _forward(self, inputs):
         return self.encoder(inputs)

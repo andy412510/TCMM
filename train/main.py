@@ -65,7 +65,7 @@ def get_train_loader(args, dataset, height, width, batch_size, workers,
     train_loader = IterLoader(
         DataLoader(Preprocessor(train_set, root=dataset.images_dir, nv_root=dataset.images_dir, transform=train_transformer),
                    batch_size=batch_size, num_workers=workers, sampler=sampler,
-                   shuffle=not rmgs_flag, pin_memory=True, drop_last=True), length=iters)
+                   shuffle=not rmgs_flag, pin_memory=True, drop_last=True), length=iters)  # shuffle=not rmgs_flag
     return train_loader
 
 
@@ -124,6 +124,7 @@ def main_worker(args):
     global start_epoch, best_mAP
     start_time = time.monotonic()
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+
     cudnn.benchmark = True
 
     sys.stdout = Logger(osp.join(args.logs_dir, 'log.txt'))
@@ -154,22 +155,38 @@ def main_worker(args):
 
     # Trainer
     trainer = Trainer(model)
+    print('==> Initialize features memory')
+    feature_memory = ClusterMemory(model.module.num_features, len(dataset.train), temp=args.temp,
+                                   momentum=args.momentum, use_hard=args.use_hard).cuda()
+    cluster_loader = get_test_loader(args, dataset, args.height, args.width,
+                                     args.batch_size, args.workers, testset=sorted(dataset.train))
 
+    # create index corresponding dic
+    index_dic = {}
+    for it, data in enumerate(cluster_loader):
+        _, path_list, _, _, indexes = data
+        for m in range(len(path_list)):
+            file_path = path_list[m]
+            file_name = file_path.split('/')[-1]
+            index_dic[file_name] = indexes[m]
+
+    features, _ = extract_features(model, cluster_loader, print_freq=50)
+    features = torch.cat([features[f].unsqueeze(0) for f, _, _ in sorted(dataset.train)], 0)
+    feature_memory.features = F.normalize(features, dim=1).cuda()
+    trainer.feature_memory = feature_memory
     # DBSCAN cluster init
     eps = args.eps
     print('Clustering criterion: eps: {:.3f}'.format(eps))
     cluster = DBSCAN(eps=eps, min_samples=4, metric='precomputed', n_jobs=-1)
-    # pseudo_list_all = np.zeros((args.epochs, 12936))
     for epoch in range(args.epochs):
         with torch.no_grad():
             print('==> Create pseudo labels for unlabeled data')
-            cluster_loader = get_test_loader(args, dataset, args.height, args.width,
-                                             args.batch_size, args.workers, testset=sorted(dataset.train))
             features, _ = extract_features(model, cluster_loader, print_freq=50)
             features = torch.cat([features[f].unsqueeze(0) for f, _, _ in sorted(dataset.train)], 0)
             rerank_dist = compute_jaccard_distance(features, k1=args.k1, k2=args.k2)
             # select & cluster images as training set of this epochs
             pseudo_labels = cluster.fit_predict(rerank_dist)
+            feature_memory.labels = torch.Tensor(pseudo_labels).cuda()
             num_cluster = len(set(pseudo_labels)) - (1 if -1 in pseudo_labels else 0)
 
         # generate new dataset and calculate cluster centers
@@ -189,9 +206,9 @@ def main_worker(args):
             return centers
 
         cluster_features = generate_cluster_features(pseudo_labels, features)
-        del cluster_loader, features
+        del features
 
-        # Create hybrid memory
+        # Create ClusterMemory
         memory = ClusterMemory(model.module.num_features, num_cluster, temp=args.temp,
                                momentum=args.momentum, use_hard=args.use_hard).cuda()
         memory.features = F.normalize(cluster_features, dim=1).cuda()
@@ -210,7 +227,8 @@ def main_worker(args):
                                         trainset=pseudo_labeled_dataset)
 
         train_loader.new_epoch()
-        trainer.train(epoch, train_loader, optimizer,
+
+        trainer.train(epoch, train_loader, optimizer, args.K, index_dic=index_dic,
                       print_freq=args.print_freq, train_iters=len(train_loader))
 
         if (epoch + 1) % args.eval_step == 0 or (epoch == args.epochs - 1):
@@ -240,12 +258,13 @@ def main_worker(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="contrastive learning on unsupervised re-ID")
     # data
-    parser.add_argument('-d', '--dataset', type=str, default='msmt17',  # market1501, msmt17_v2, msmt17
+    parser.add_argument('-d', '--dataset', type=str, default='market1501',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
     parser.add_argument('--gpu', type=str, default='4,5,6,7')
     parser.add_argument('-b', '--batch-size', type=int, default=512)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('-j', '--workers', type=int, default=4)
+    parser.add_argument('-K', type=int, default=8, help="negative samples number for instance memory")
     parser.add_argument('--height', type=int, default=256, help="input height")
     parser.add_argument('--width', type=int, default=128, help="input width")
     parser.add_argument('--num-instances', type=int, default=8,
@@ -253,7 +272,7 @@ if __name__ == '__main__':
                              "(batch_size // num_instances) identities, and "
                              "each i dentity has num_instances instances, "
                              "default: 0 (NOT USE)")
-    # cluster
+    # DBSCAN
     parser.add_argument('--eps', type=float, default=0.7,
                         help="max neighbor distance for DBSCAN")
     parser.add_argument('--eps-gap', type=float, default=0.02,
@@ -270,7 +289,7 @@ if __name__ == '__main__':
     parser.add_argument('--features', type=int, default=0)
     parser.add_argument('--dropout', type=float, default=0)
     parser.add_argument('--momentum', type=float, default=0.2,
-                        help="update momentum for the hybrid memory")
+                        help="update momentum for the memory")
     #vit
     parser.add_argument('--drop-path-rate', type=float, default=0.3)
     parser.add_argument('--hw-ratio', type=int, default=2)
@@ -294,7 +313,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-dir', type=str, metavar='PATH',
                         default='/home/andy/ICASSP_data/data/')
     parser.add_argument('--logs-dir', type=str, metavar='PATH',
-                        default='./log/cluster_contrast_reid/msmt17_v1/pass_vit_small_full')  # msmt17_v2, market1501
+                        default='./log/cluster_contrast_reid/market1501/pass_vit_small_full_1')  # msmt17_v2, market1501
     parser.add_argument('--pooling-type', type=str, default='gem')
     parser.add_argument('--feat-fusion', type=str, default='cat')
     # parser.add_argument('--multi-neck', default=True)
