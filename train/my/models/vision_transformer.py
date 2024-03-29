@@ -246,6 +246,7 @@ class PatchEmbed_VOLO(nn.Module):
 
 class TransReID(nn.Module):
     """ Transformer-based Object Re-Identification
+        Token is added to cls and part tokens to test the performance. (Andy Zhu)
     """
     def __init__(self, img_size=224, patch_size=16, stride_size=16, in_chans=3, num_classes=0, embed_dim=768, depth=12,num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, pretrained_path='',hw_ratio=1, conv_stem=False, feat_fusion='cat', multi_neck=True):
         super().__init__()

@@ -59,6 +59,9 @@ def cm_hard(inputs, indexes, features, momentum=0.5):
 
 
 def anchor(batch_input, batch_labels, indexes, feature_memory, k, temp, momentum):
+    """
+    The anchor loss implementation in our paper.(Andy Zhu)
+    """
     instance_m = feature_memory.features.clone().detach()
     mat = torch.matmul(batch_input, instance_m.transpose(0, 1))
     positives = []
@@ -103,7 +106,9 @@ class ClusterMemory(nn.Module, ABC):
 
         if self.use_hard:
             outputs = cm_hard(inputs, targets, self.features, self.momentum)
-
+        """
+        The anchor and prototype loss implementation in our paper.(Andy Zhu)
+        """
         outputs /= self.temp
         loss = F.cross_entropy(outputs, targets)
         # return loss

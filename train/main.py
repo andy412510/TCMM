@@ -258,13 +258,13 @@ def main_worker(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="contrastive learning on unsupervised re-ID")
     # data
-    parser.add_argument('-d', '--dataset', type=str, default='market1501',  # msmt17, msmt17_v2, msmt17
+    parser.add_argument('-d', '--dataset', type=str, default='market1501',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
     parser.add_argument('--gpu', type=str, default='4,5,6,7')
     parser.add_argument('-b', '--batch-size', type=int, default=512)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('-j', '--workers', type=int, default=4)
-    parser.add_argument('-K', type=int, default=64, help="negative samples number for instance memory")
+    parser.add_argument('-K', type=int, default=8, help="negative samples number for instance memory")
     parser.add_argument('--height', type=int, default=256, help="input height")
     parser.add_argument('--width', type=int, default=128, help="input width")
     parser.add_argument('--num-instances', type=int, default=8,
@@ -313,7 +313,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-dir', type=str, metavar='PATH',
                         default='/home/andy/ICASSP_data/data/')
     parser.add_argument('--logs-dir', type=str, metavar='PATH',
-                        default='./log/cluster_contrast_reid/msmt17_v1/pass_vit_small_full')  # msmt17_v2, market1501
+                        default='./log/cluster_contrast_reid/market1501/pass_vit_small_full_1')  # msmt17_v2, market1501
     parser.add_argument('--pooling-type', type=str, default='gem')
     parser.add_argument('--feat-fusion', type=str, default='cat')
     # parser.add_argument('--multi-neck', default=True)
