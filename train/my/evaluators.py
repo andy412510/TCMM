@@ -36,12 +36,8 @@ def extract_features(model, data_loader, print_freq=50, cluster_features=True):
             data_time.update(time.time() - end)
             imgs = to_torch(imgs).cuda()
             outputs = model(imgs)
-            #  if cluster_features:
-                #  inv_idx = torch.arange(imgs.size(3) - 1, -1, -1).long().cuda()
-                #  imgs_flip = imgs.index_select(3, inv_idx)
-                #  outputs_flip = model(imgs_flip)
-                #  outputs = (outputs + outputs_flip)/2.0
-            outputs = outputs.data.cpu()
+            # outputs = outputs.data.cpu()  # w/o tokens
+            outputs = outputs[0].data.cpu()
             for fname, output, pid in zip(fnames, outputs, pids):
                 features[fname] = output
                 labels[fname] = pid

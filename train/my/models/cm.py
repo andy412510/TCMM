@@ -98,7 +98,8 @@ class ClusterMemory(nn.Module, ABC):
         self.criterion = nn.CrossEntropyLoss()
         self.register_buffer('features', torch.zeros(num_samples, num_features))
 
-    def forward(self, inputs, targets, indexes, feature_memory, k):
+    def forward(self, inputs_tuple, targets, indexes, feature_memory, k):
+        inputs = inputs_tuple[0]
         inputs = F.normalize(inputs, dim=1).cuda()  # batch data
         contrast_targets = torch.zeros([targets.size(0)]).cuda().long()
         anchor_out = anchor(inputs, targets, indexes, feature_memory, k, self.temp, self.momentum)
