@@ -110,7 +110,6 @@ def create_model(args):
 
 def main():
     args = parser.parse_args()
-
     if args.seed is not None:
         random.seed(args.seed)
         np.random.seed(args.seed)
@@ -228,7 +227,7 @@ def main_worker(args):
 
         train_loader.new_epoch()
 
-        trainer.train(epoch, train_loader, optimizer, args.K, index_dic=index_dic,
+        trainer.train(epoch, train_loader, optimizer, args.K, args.patch_rate, index_dic=index_dic,
                       print_freq=args.print_freq, train_iters=len(train_loader))
 
         if (epoch + 1) % args.eval_step == 0 or (epoch == args.epochs - 1):
@@ -265,6 +264,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('-j', '--workers', type=int, default=4)
     parser.add_argument('-K', type=int, default=8, help="negative samples number for instance memory")
+    parser.add_argument('--patch-rate', type=float, default=0.05, help="noise patch rate for patch refine")
     parser.add_argument('--height', type=int, default=256, help="input height")
     parser.add_argument('--width', type=int, default=128, help="input width")
     parser.add_argument('--num-instances', type=int, default=8,
