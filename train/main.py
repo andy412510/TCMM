@@ -259,12 +259,12 @@ if __name__ == '__main__':
     # data
     parser.add_argument('-d', '--dataset', type=str, default='market1501',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
-    parser.add_argument('--gpu', type=str, default='4,5,6,7')
+    parser.add_argument('--gpu', type=str, default='0,1,2,3')
     parser.add_argument('-b', '--batch-size', type=int, default=512)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('-j', '--workers', type=int, default=4)
     parser.add_argument('-K', type=int, default=8, help="negative samples number for instance memory")
-    parser.add_argument('--patch-rate', type=float, default=0.05, help="noise patch rate for patch refine")
+    parser.add_argument('--patch-rate', type=float, default=0.025, help="noise patch rate for patch refine")
     parser.add_argument('--height', type=int, default=256, help="input height")
     parser.add_argument('--width', type=int, default=128, help="input width")
     parser.add_argument('--num-instances', type=int, default=8,
@@ -273,7 +273,7 @@ if __name__ == '__main__':
                              "each i dentity has num_instances instances, "
                              "default: 0 (NOT USE)")
     # DBSCAN
-    parser.add_argument('--eps', type=float, default=0.7,
+    parser.add_argument('--eps', type=float, default=0.6,
                         help="max neighbor distance for DBSCAN")
     parser.add_argument('--eps-gap', type=float, default=0.02,
                         help="multi-scale criterion for measuring cluster reliability")
