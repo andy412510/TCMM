@@ -405,7 +405,6 @@ class TransReID(nn.Module):
             bn.bias.requires_grad_(False)
             bn.apply(weights_init_kaiming)
             bn_cls_with_tokens = torch.cat((cls.unsqueeze(1), tokens), dim=1)
-            bn_cls_with_tokens = bn(bn_cls_with_tokens)
             bn_cls_with_tokens = F.normalize(bn_cls_with_tokens)
             bn_cls = bn_cls_with_tokens[:, 0]
             bn_tokens = bn_cls_with_tokens[:, 1:]

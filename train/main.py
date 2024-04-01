@@ -259,7 +259,7 @@ if __name__ == '__main__':
     # data
     parser.add_argument('-d', '--dataset', type=str, default='market1501',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
-    parser.add_argument('--gpu', type=str, default='0,1,2,3')
+    parser.add_argument('--gpu', type=str, default='4,5,6,7')
     parser.add_argument('-b', '--batch-size', type=int, default=512)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('-j', '--workers', type=int, default=4)
