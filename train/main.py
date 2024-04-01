@@ -28,7 +28,7 @@ from my.utils.data.preprocessor import Preprocessor
 from my.utils.logging import Logger
 from my.utils.serialization import load_checkpoint, save_checkpoint
 from my.utils.faiss_rerank import compute_jaccard_distance
-
+print('patch_re')
 start_epoch = best_mAP = 0
 
 
