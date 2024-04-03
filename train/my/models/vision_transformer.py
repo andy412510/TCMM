@@ -400,26 +400,31 @@ class TransReID(nn.Module):
                 return torch.cat((bn_cls, bn_pt1/3.+bn_pt2/3.+bn_pt3/3.), dim=1)
 
         else:
-            bn = nn.BatchNorm1d(129)
+            part = pt1/3. + pt2/3. + pt3/3.
+            bn_cls_with_tokens = torch.cat((cls.unsqueeze(1), part.unsqueeze(1), tokens), dim=1)
+
+            bn = nn.BatchNorm1d(bn_cls_with_tokens.size(1))
             bn.cuda()
             bn.bias.requires_grad_(False)
             bn.apply(weights_init_kaiming)
-            bn_cls_with_tokens = torch.cat((cls.unsqueeze(1), tokens), dim=1)
+
+            bn_cls_with_tokens = bn(bn_cls_with_tokens)
             bn_cls_with_tokens = F.normalize(bn_cls_with_tokens)
             bn_cls = bn_cls_with_tokens[:, 0]
-            bn_tokens = bn_cls_with_tokens[:, 1:]
+            bn_part = bn_cls_with_tokens[:, 1]
+            bn_tokens = bn_cls_with_tokens[:, 2:]
 
             if self.feat_fusion == 'mean':
                 feat = (cls + pt1/3. + pt2/3. + pt3/3.)/2.
                 bn_feat = self.bottleneck(feat)
                 bn_feat = F.normalize(bn_feat)
-                return bn_feat, bn_cls, bn_tokens
+                return bn_feat, bn_cls, bn_part, bn_tokens
 
             elif self.feat_fusion == 'cat':
                 feat = torch.cat((cls, pt1/3. + pt2/3. + pt3/3.), dim=1)
                 bn_feat = self.bottleneck(feat)
                 bn_feat = F.normalize(bn_feat)
-                return bn_feat, bn_cls, bn_tokens
+                return bn_feat, bn_cls, bn_part, bn_tokens
                 # return bn_feat
 
 

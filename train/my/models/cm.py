@@ -79,19 +79,18 @@ def anchor(batch_input, batch_labels, indexes, feature_memory, k, temp, momentum
 
 def path_refine(inputs_tuple, patch_rate, temp):
     cls = inputs_tuple[1].unsqueeze(1)
-    tokens = inputs_tuple[2]
-    mat = torch.einsum("bxd,byd->bxy", [cls, tokens])
-    positives = []
-    negatives = []
+    part = inputs_tuple[2].unsqueeze(1)
+    tokens = inputs_tuple[3]
+    mat = (torch.einsum("bxd,byd->bxy", [cls, tokens]) + torch.einsum("bxd,byd->bxy", [part, tokens]))/2
     B = cls.size(0)
     rate = int(tokens.size(1) * patch_rate)
+    positives = []
+    negatives = []
     for i in range(B):
-        index = torch.argmax(mat[i,:])
-        positives.append(mat[i,:,index])
-        neg = torch.sort(mat[i,:])[0]
-        index_n = neg[:,:rate]
-        negatives.append(index_n)
-    positives = torch.stack(positives)
+        sort_mat = torch.sort(mat[i,:])[0]
+        positives.append(sort_mat[0, -1])  # most similar
+        negatives.append(sort_mat[0,:rate])  # most dissimilar
+    positives = torch.stack(positives).unsqueeze(1)
     negatives = torch.stack(negatives).squeeze(1)
     patch_out = torch.cat((positives, negatives), dim=1) / temp
     return patch_out
