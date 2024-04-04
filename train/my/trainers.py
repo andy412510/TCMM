@@ -11,7 +11,7 @@ class Trainer(object):
         self.memory = memory
         self.feature_memory = feature_memory
 
-    def train(self, epoch, data_loader, optimizer, k, patch_rate, index_dic, print_freq=10, train_iters=400):
+    def train(self, epoch, data_loader, optimizer, k, patch_rate, positive_rate, index_dic, print_freq=10, train_iters=400):
         self.encoder.train()
 
         batch_time = AverageMeter()
@@ -33,7 +33,7 @@ class Trainer(object):
                 indexes[j] = index_dic[file_name]
             # forward
             f_out = self._forward(inputs)
-            loss = self.memory(f_out, labels, indexes, self.feature_memory, k, patch_rate)
+            loss = self.memory(f_out, labels, indexes, self.feature_memory, k, patch_rate, positive_rate)
 
             optimizer.zero_grad()
             loss.backward()

@@ -227,7 +227,7 @@ def main_worker(args):
 
         train_loader.new_epoch()
 
-        trainer.train(epoch, train_loader, optimizer, args.K, args.patch_rate, index_dic=index_dic,
+        trainer.train(epoch, train_loader, optimizer, args.K, args.patch_rate, args.positive_rate, index_dic=index_dic,
                       print_freq=args.print_freq, train_iters=len(train_loader))
 
         if (epoch + 1) % args.eval_step == 0 or (epoch == args.epochs - 1):
@@ -259,12 +259,13 @@ if __name__ == '__main__':
     # data
     parser.add_argument('-d', '--dataset', type=str, default='market1501',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
-    parser.add_argument('--gpu', type=str, default='4,5,6,7')
+    parser.add_argument('--gpu', type=str, default='0,1,2,3')
     parser.add_argument('-b', '--batch-size', type=int, default=512)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('-j', '--workers', type=int, default=4)
     parser.add_argument('-K', type=int, default=8, help="negative samples number for instance memory")
     parser.add_argument('--patch-rate', type=float, default=0.025, help="noise patch rate for patch refine")
+    parser.add_argument('--positive-rate', type=int, default=3, help="positive sample number for patch refine")
     parser.add_argument('--height', type=int, default=256, help="input height")
     parser.add_argument('--width', type=int, default=128, help="input width")
     parser.add_argument('--num-instances', type=int, default=8,

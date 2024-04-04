@@ -77,22 +77,48 @@ def anchor(batch_input, batch_labels, indexes, feature_memory, k, temp, momentum
     return anchor_out
 
 
-def path_refine(inputs_tuple, patch_rate, temp):
+def path_refine(inputs_tuple, patch_rate, temp, positive_rate):
     cls = inputs_tuple[1].unsqueeze(1)
     part = inputs_tuple[2].unsqueeze(1)
     tokens = inputs_tuple[3]
-    mat = (torch.einsum("bxd,byd->bxy", [cls, tokens]) + torch.einsum("bxd,byd->bxy", [part, tokens]))/2
+    mat = torch.einsum("bxd,byd->bxy", [cls, tokens]) + torch.einsum("bxd,byd->bxy", [part, tokens])/2
     B = cls.size(0)
     rate = int(tokens.size(1) * patch_rate)
     positives = []
     negatives = []
+    patch_out = []
     for i in range(B):
-        sort_mat = torch.sort(mat[i,:])[0]
-        positives.append(sort_mat[0, -1])  # most similar
-        negatives.append(sort_mat[0,:rate])  # most dissimilar
-    positives = torch.stack(positives).unsqueeze(1)
-    negatives = torch.stack(negatives).squeeze(1)
-    patch_out = torch.cat((positives, negatives), dim=1) / temp
+        sort_mat = torch.sort(mat[i, :])[0]
+        positives.append(sort_mat[0, -positive_rate:])  # most similar
+        negatives.append(sort_mat[0, :rate])  # most dissimilar
+    positives = torch.stack(positives)
+    negatives = torch.stack(negatives)
+    for i in range(positive_rate):
+        out = torch.cat((positives[:, i].unsqueeze(1), negatives), dim=1) / temp
+        patch_out.append(out)
+    patch_out = torch.stack(patch_out)
+
+    # positives2 = []
+    # positives3 = []
+    # positives4 = []
+    #
+    # for i in range(B):
+    #     sort_mat = torch.sort(mat[i,:])[0]
+    #     negatives.append(sort_mat[0, :rate])
+    #     positives.append(sort_mat[0, -1])  # most similar
+    #     positives2.append(sort_mat[0, -2])
+    #     positives3.append(sort_mat[0, -3])
+    #     positives4.append(sort_mat[0, -4])
+    #       # most dissimilar
+    # positives = torch.stack(positives).unsqueeze(1)
+    # positives2 = torch.stack(positives2).unsqueeze(1)
+    # positives3 = torch.stack(positives3).unsqueeze(1)
+    # positives4 = torch.stack(positives4).unsqueeze(1)
+    # negatives = torch.stack(negatives).squeeze(1)
+    # patch_out = torch.cat((positives, negatives), dim=1) / temp
+    # patch_out2 = torch.cat((positives2, negatives), dim=1) / temp
+    # patch_out3 = torch.cat((positives3, negatives), dim=1) / temp
+    # patch_out4 = torch.cat((positives4, negatives), dim=1) / temp
     return patch_out
 
 
@@ -108,12 +134,14 @@ class ClusterMemory(nn.Module, ABC):
         self.criterion = nn.CrossEntropyLoss()
         self.register_buffer('features', torch.zeros(num_samples, num_features))
 
-    def forward(self, inputs_tuple, targets, indexes, feature_memory, k, patch_rate):
+    def forward(self, inputs_tuple, targets, indexes, feature_memory, k, patch_rate, positive_rate):
+        patch_loss = 0
         inputs = inputs_tuple[0]
         inputs = F.normalize(inputs, dim=1).cuda()  # batch data
         contrast_targets = torch.zeros([targets.size(0)]).cuda().long()
-        patch_out = path_refine(inputs_tuple, patch_rate, self.temp)
-        patch_loss = self.criterion(patch_out, contrast_targets)
+        patch_out = path_refine(inputs_tuple, patch_rate, self.temp, positive_rate)
+        for i in range(patch_out.size(0)):
+            patch_loss = patch_loss + self.criterion(patch_out[i,:], contrast_targets)
         anchor_out = anchor(inputs, targets, indexes, feature_memory, k, self.temp, self.momentum)
         anchor_loss = self.criterion(anchor_out, contrast_targets)
 
