@@ -261,7 +261,7 @@ if __name__ == '__main__':
                         choices=datasets.names())
     parser.add_argument('--gpu', type=str, default='0,1,2,3')
     parser.add_argument('-b', '--batch-size', type=int, default=512)
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=80)
     parser.add_argument('-j', '--workers', type=int, default=4)
     parser.add_argument('-K', type=int, default=8, help="negative samples number for instance memory")
     parser.add_argument('--patch-rate', type=float, default=0.025, help="noise patch rate for patch refine")
@@ -314,7 +314,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-dir', type=str, metavar='PATH',
                         default='/home/andy/ICASSP_data/data/')
     parser.add_argument('--logs-dir', type=str, metavar='PATH',
-                        default='./log/cluster_contrast_reid/market1501/pass_vit_small_full_1')  # msmt17_v2, market1501
+                        default='./log/cluster_contrast_reid/market1501/pass_vit_small_full_1')  # msmt17_v1, market1501
     parser.add_argument('--pooling-type', type=str, default='gem')
     parser.add_argument('--feat-fusion', type=str, default='cat')
     # parser.add_argument('--multi-neck', default=True)
