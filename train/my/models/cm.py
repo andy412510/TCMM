@@ -172,6 +172,8 @@ class ClusterMemory(nn.Module, ABC):
         return loss + anchor_loss + patch_loss
         # return loss
 
+
+#                           佛祖保佑，Bug全修
 # //                            _ooOoo_
 # //                           o8888888o
 # //                           88" . "88
@@ -190,4 +192,3 @@ class ClusterMemory(nn.Module, ABC):
 # //                 \ \ `-. \_ __\ /__ _/ .-` / /
 # //         ======`-.____`-.___\_____/___.-`____.-'======
 # //                            `=---='
-#                           佛祖保佑，口試求過
