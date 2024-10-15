@@ -10,7 +10,6 @@ import time
 from datetime import timedelta
 import os
 from sklearn.cluster import DBSCAN
-import pandas as pd
 import torch
 from torch import nn
 from torch.backends import cudnn
@@ -28,10 +27,9 @@ from my.utils.data.preprocessor import Preprocessor
 from my.utils.logging import Logger
 from my.utils.serialization import load_checkpoint, save_checkpoint
 from my.utils.faiss_rerank import compute_jaccard_distance
-print('patch_re')
 start_epoch = best_mAP = 0
 
-
+# test line
 def get_data(name, data_dir):
     dataset = datasets.create(name, data_dir)
     return dataset
@@ -182,8 +180,8 @@ def main_worker(args):
             print('==> Create pseudo labels for unlabeled data')
             features, _ = extract_features(model, cluster_loader, print_freq=50)
             features = torch.cat([features[f].unsqueeze(0) for f, _, _ in sorted(dataset.train)], 0)
-            rerank_dist = compute_jaccard_distance(features, k1=args.k1, k2=args.k2)
             # select & cluster images as training set of this epochs
+            rerank_dist = compute_jaccard_distance(features, k1=args.k1, k2=args.k2)
             pseudo_labels = cluster.fit_predict(rerank_dist)
             feature_memory.labels = torch.Tensor(pseudo_labels).cuda()
             num_cluster = len(set(pseudo_labels)) - (1 if -1 in pseudo_labels else 0)
@@ -257,14 +255,14 @@ def main_worker(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="contrastive learning on unsupervised re-ID")
     # data
-    parser.add_argument('-d', '--dataset', type=str, default='market1501',  # msmt17, msmt17_v2, market1501
+    parser.add_argument('-d', '--dataset', type=str, default='msmt17',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
     parser.add_argument('--gpu', type=str, default='0,1,2,3')
     parser.add_argument('-b', '--batch-size', type=int, default=512)
     parser.add_argument('--epochs', type=int, default=80)
     parser.add_argument('-j', '--workers', type=int, default=4)
     parser.add_argument('-K', type=int, default=8, help="negative samples number for instance memory")
-    parser.add_argument('--patch-rate', type=float, default=0.025, help="noise patch rate for patch refine")
+    parser.add_argument('--patch-rate', type=float, default=0.075, help="noise patch rate for patch refine")
     parser.add_argument('--positive-rate', type=int, default=3, help="positive sample number for patch refine")
     parser.add_argument('--height', type=int, default=256, help="input height")
     parser.add_argument('--width', type=int, default=128, help="input width")
