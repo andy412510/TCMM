@@ -5,30 +5,21 @@ import os.path as osp
 import random
 import numpy as np
 import sys
-import collections
 import time
 from datetime import timedelta
 import os
-from sklearn.cluster import DBSCAN
-import pandas as pd
 import torch
 from torch import nn
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
-
 from my import datasets, models
-from my.models.cm import ClusterMemory
-from my.trainers import Trainer
-from my.evaluators import Evaluator, extract_features
+from my.evaluators import Evaluator
 from my.utils.data import IterLoader
 from my.utils.data import transforms as T
 from my.utils.data.sampler import RandomMultipleGallerySampler
 from my.utils.data.preprocessor import Preprocessor
 from my.utils.logging import Logger
-from my.utils.serialization import load_checkpoint, save_checkpoint
-from my.utils.faiss_rerank import compute_jaccard_distance
-print('patch_re')
+from my.utils.serialization import load_checkpoint
 start_epoch = best_mAP = 0
 
 
@@ -143,6 +134,7 @@ def main_worker(args):
     print('==> Test with the best model:')
     checkpoint = load_checkpoint(osp.join(args.logs_dir, '512_K4_r0.075_outlers.pth.tar'))
     model.load_state_dict(checkpoint['state_dict'])
+
     evaluator.evaluate(test_loader, dataset.query, dataset.gallery, cmc_flag=True)
 
     end_time = time.monotonic()
@@ -155,14 +147,11 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dataset', type=str, default='msmt17',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
     parser.add_argument('--logs-dir', type=str, metavar='PATH',
-                        default='./log/cluster_contrast_reid/msmt17_v1')  # msmt17_v1, market1501
+                        default='/home/andy/main_code/train/log/cluster_contrast_reid/msmt17_v1')  # msmt17_v1, market1501
     parser.add_argument('--gpu', type=str, default='0,1,2,3')
-    parser.add_argument('-b', '--batch-size', type=int, default=512)
+    parser.add_argument('-b', '--batch-size', type=int, default=2048)
     parser.add_argument('--epochs', type=int, default=80)
     parser.add_argument('-j', '--workers', type=int, default=4)
-    parser.add_argument('-K', type=int, default=8, help="negative samples number for instance memory")
-    parser.add_argument('--patch-rate', type=float, default=0.025, help="noise patch rate for patch refine")
-    parser.add_argument('--positive-rate', type=int, default=3, help="positive sample number for patch refine")
     parser.add_argument('--height', type=int, default=256, help="input height")
     parser.add_argument('--width', type=int, default=128, help="input width")
     parser.add_argument('--num-instances', type=int, default=8,
@@ -176,20 +165,13 @@ if __name__ == '__main__':
     parser.add_argument('-pp', '--pretrained-path', type=str, default='/home/andy/ICASSP_data/pretrain/PASS/pass_vit_small_full.pth')
     parser.add_argument('--features', type=int, default=0)
     parser.add_argument('--dropout', type=float, default=0)
-    parser.add_argument('--momentum', type=float, default=0.2,
-                        help="update momentum for the memory")
+
     #vit
     parser.add_argument('--drop-path-rate', type=float, default=0.3)
     parser.add_argument('--hw-ratio', type=int, default=2)
     parser.add_argument('--self-norm', default=True)
     parser.add_argument('--conv-stem', action="store_true")
-    # optimizer
-    parser.add_argument('--lr', type=float, default=0.00035,
-                        help="learning rate")
-    parser.add_argument('--weight-decay', type=float, default=5e-4)
-    parser.add_argument('--optimizer', type=str, default='SGD')
     parser.add_argument('--iters', type=int, default=200)
-    parser.add_argument('--step-size', type=int, default=20)
     # training configs
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--print-freq', type=int, default=20)
@@ -203,7 +185,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--pooling-type', type=str, default='gem')
     parser.add_argument('--feat-fusion', type=str, default='cat')
-    # parser.add_argument('--multi-neck', default=True)
     parser.add_argument('--multi-neck', action="store_true")
     parser.add_argument('--use-hard', default=True)
     main()
