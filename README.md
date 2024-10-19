@@ -19,19 +19,19 @@ TCMM pretrained:
 2. /home/andy/main_code/train/log/cluster_contrast_reid/msmt17_v1/512_K4_r0.075_outlers.pth.tar
 
 # Path Setting 
-TCMM pretrained path: 
+TCMM pretrained path:  
 `checkpoint = load_checkpoint(osp.join(args.logs_dir, '512_K4_r0.075_outlers.pth.tar'))`
 
-GPU setting: 
+GPU setting:  
 `parser.add_argument('--gpu', type=str, default='0,1,2,3')`
 
-batch size setting:
+batch size setting:  
 `parser.add_argument('-b', '--batch-size', type=int, default=2048)`
 
-ViT pretrained path:
+ViT pretrained path:  
 `parser.add_argument('-pp', '--pretrained-path', type=str, default='/home/andy/ICASSP_data/pretrain/PASS/pass_vit_small_full.pth')`
 
-data folder path:
+data folder path:  
 `arser.add_argument('--data-dir', type=str, metavar='PATH', default='/home/andy/ICASSP_data/data/')` 
 
 	
