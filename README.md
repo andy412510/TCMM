@@ -1,5 +1,5 @@
 # Development Environment
-Linux
+Linux  
 Python 3.8.17
 
 # Install
@@ -10,13 +10,11 @@ Choose one dataset source:
 1. NAS: MVL_FTP/Dataset/Person re-id/MSMT17_V1.zip
 2. 113: /home/andy/ICASSP_data/data/MSMT17
 
-ViT pretrained:
-1. NAS: Master Thesis/Thesis/105 朱政安/code/log/pass_vit_small_full.pth
-2. 113: /home/andy/ICASSP_data/pretrain/PASS/pass_vit_small_full.pth
+ViT pretrained:  
+https://drive.google.com/file/d/1WlZF9i_GGVbzBXurXHREYST_QUGWhBaT/view?usp=sharing
 
-TCMM pretrained:
-1. NAS: Master Thesis/Thesis/105 朱政安/code/log/msmt/512_K4_r0.075_outlers.pth.tar
-2. /home/andy/main_code/train/log/cluster_contrast_reid/msmt17_v1/512_K4_r0.075_outlers.pth.tar
+TCMM pretrained:  
+https://drive.google.com/file/d/1CcLWxjS4HcDgDL0bJ1n0B3CuB9bN_p5Z/view?usp=sharing
 
 # Path Setting 
 TCMM pretrained path:  
