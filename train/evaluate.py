@@ -121,7 +121,6 @@ def main_worker(args):
     print("==========\nArgs:{}\n==========".format(args))
 
     # Create datasets
-    iters = args.iters if (args.iters > 0) else None
     print("==> Load unlabeled dataset")
     dataset = get_data(args.dataset, args.data_dir)
     test_loader = get_test_loader(args, dataset, args.height, args.width, args.batch_size, args.workers)
@@ -142,6 +141,7 @@ def main_worker(args):
 
 
 if __name__ == '__main__':
+    working_dir = osp.dirname(osp.abspath(__file__))
     parser = argparse.ArgumentParser(description="contrastive learning on unsupervised re-ID")
     # data
     parser.add_argument('-d', '--dataset', type=str, default='msmt17',  # msmt17, msmt17_v2, market1501
@@ -151,6 +151,10 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', type=str, default='0,1,2,3')
     parser.add_argument('-b', '--batch-size', type=int, default=2048)
     parser.add_argument('--epochs', type=int, default=80)
+    parser.add_argument('-pp', '--pretrained-path', type=str,
+                        default='/home/andy/ICASSP_data/pretrain/PASS/pass_vit_small_full.pth')
+    parser.add_argument('--data-dir', type=str, metavar='PATH',
+                        default='/home/andy/ICASSP_data/data/')
     parser.add_argument('-j', '--workers', type=int, default=4)
     parser.add_argument('--height', type=int, default=256, help="input height")
     parser.add_argument('--width', type=int, default=128, help="input width")
@@ -162,27 +166,16 @@ if __name__ == '__main__':
     # model
     parser.add_argument('-a', '--arch', type=str, default='vit_small',
                         choices=models.names())
-    parser.add_argument('-pp', '--pretrained-path', type=str, default='/home/andy/ICASSP_data/pretrain/PASS/pass_vit_small_full.pth')
     parser.add_argument('--features', type=int, default=0)
     parser.add_argument('--dropout', type=float, default=0)
-
     #vit
     parser.add_argument('--drop-path-rate', type=float, default=0.3)
     parser.add_argument('--hw-ratio', type=int, default=2)
     parser.add_argument('--self-norm', default=True)
     parser.add_argument('--conv-stem', action="store_true")
-    parser.add_argument('--iters', type=int, default=200)
-    # training configs
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--print-freq', type=int, default=20)
     parser.add_argument('--eval-step', type=int, default=10)
-    parser.add_argument('--temp', type=float, default=0.05,
-                        help="temperature for scaling contrastive loss")
-    # path
-    working_dir = osp.dirname(osp.abspath(__file__))
-    parser.add_argument('--data-dir', type=str, metavar='PATH',
-                        default='/home/andy/ICASSP_data/data/')
-
     parser.add_argument('--pooling-type', type=str, default='gem')
     parser.add_argument('--feat-fusion', type=str, default='cat')
     parser.add_argument('--multi-neck', action="store_true")
