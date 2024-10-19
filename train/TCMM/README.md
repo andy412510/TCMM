@@ -6,7 +6,7 @@
 
 ### 程式流程
 https://github.com/andy412510/TCMM/blob/4c5c051a49836e3017d8bf72fd762943116a6a84/train/TCMM/evaluators.py#L118  
-程式開始 evaluate 的第一行
+^^^^ 程式開始 evaluate 的第一行 ^^^^
 
 https://github.com/andy412510/TCMM/blob/4c5c051a49836e3017d8bf72fd762943116a6a84/train/TCMM/evaluators.py#L119  
 output: features = {Tensors:(93820,768)}  
