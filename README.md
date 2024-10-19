@@ -33,4 +33,5 @@ ViT pretrained path:
 data folder path:  
 `arser.add_argument('--data-dir', type=str, metavar='PATH', default='/home/andy/ICASSP_data/data/')` 
 
-	
+# Evaluate
+python ./train/evaluate.py
