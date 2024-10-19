@@ -17,6 +17,7 @@ TCMM pretrained:
 https://drive.google.com/file/d/1CcLWxjS4HcDgDL0bJ1n0B3CuB9bN_p5Z/view?usp=sharing
 
 # Path Setting 
+### Modify the following code to match your data path.
 TCMM pretrained path:  
 `checkpoint = load_checkpoint(osp.join(args.logs_dir, '512_K4_r0.075_outlers.pth.tar'))`
 
