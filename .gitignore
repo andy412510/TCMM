@@ -187,5 +187,6 @@ poetry.toml
 
 # LSP config files
 pyrightconfig.json
+/train/query_gallery_vis/
 
 # End of https://www.toptal.com/developers/gitignore/api/linux,python
