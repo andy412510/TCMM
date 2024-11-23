@@ -10,19 +10,13 @@ from datetime import timedelta
 import os
 from collections import OrderedDict, Counter
 from sklearn.cluster import DBSCAN
-import pandas as pd
 from sklearn.manifold import TSNE
-import itertools
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
 import torch
 from torch import nn
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
 from TCMM.utils import to_torch
 from TCMM import datasets, models
-from TCMM.models.cm import ClusterMemory
 from TCMM.evaluators import Evaluator
 from TCMM.utils.data import IterLoader
 from TCMM.utils.data import transforms as T
@@ -31,6 +25,10 @@ from TCMM.utils.data.preprocessor import Preprocessor
 from TCMM.utils.logging import Logger
 from TCMM.utils.serialization import load_checkpoint, save_checkpoint
 from TCMM.utils.faiss_rerank import compute_jaccard_distance
+
+from openTSNE import TSNE
+import matplotlib.pyplot as plt
+from examples import utils
 start_epoch = best_mAP = 0
 
 
@@ -138,14 +136,15 @@ def extract_features(model, data_loader, print_freq=50, cluster_features=True):
     select_labels = OrderedDict()
     with torch.no_grad():
         for i, (imgs, fnames, pids, _, _) in enumerate(data_loader):
+            # test data feature extract
             imgs = to_torch(imgs).cuda()
             outputs = model(imgs)
             outputs = outputs[0].data.cpu()
             for fname, output, pid in zip(fnames, outputs, pids):
                 features[fname] = output
-                labels[fname] = pid
+                labels[fname] = pid  # file name = label
         for key, value in labels.items():
-            if value.item() in [1201, 2088, 557, 1153, 411]:
+            if value.item() in [1201, 2088, 1153, 411, 2710, 1186]:  # 1201, 2088, 557, 1153, 411
                 select_features[key] = features[key]
                 # select_labels[key] = value
                 if value.item() == 1201:
@@ -158,6 +157,12 @@ def extract_features(model, data_loader, print_freq=50, cluster_features=True):
                     select_labels[key] = torch.tensor(3)
                 elif value.item() == 411:
                     select_labels[key] = torch.tensor(4)
+                elif value.item() == 2710:
+                    select_labels[key] = torch.tensor(5)
+                elif value.item() == 1186:
+                    select_labels[key] = torch.tensor(6)
+                elif value.item() == 1461:
+                    select_labels[key] = torch.tensor(7)
 
     return select_features, select_labels
 
@@ -194,26 +199,34 @@ def main_worker(args):
     # Evaluator
     evaluator = Evaluator(model)
     print('==> Test with the best model:')
-    checkpoint = load_checkpoint(osp.join(args.logs_dir, '512_K4_r0.075_outlers.pth.tar'))
+    checkpoint = load_checkpoint(osp.join(args.logs_dir, '512_K4_r0.075_outlers.pth.tar'))  # 512_K4_r0.075_outlers
     model.load_state_dict(checkpoint['state_dict'])
 
-    # t-SNE process
+    # get features
     select_features, select_labels = extract_features(model, test_loader, cluster_features=False)
-    # t-SNE
-    features_list = [value.numpy() for value in select_features.values()]
+    features_list = torch.stack([value for value in select_features.values()])
     labels_list = [value.item() for value in select_labels.values()]
+    # DBSCAN cluster init
+    eps = args.eps
+    print('Clustering criterion: eps: {:.3f}'.format(eps))
+    cluster = DBSCAN(eps=eps, min_samples=4, metric='precomputed', n_jobs=-1)
+    rerank_dist = compute_jaccard_distance(features_list, k1=args.k1, k2=args.k2)
+
+
+    # t-SNE
     X = np.array(features_list)
-    Y = np.array(labels_list)
-    tsne = TSNE(n_components=2, random_state=42)
-    X_tsne = tsne.fit_transform(X)
-    colors = ['r', 'g', 'b', 'y', 'm']
-    plt.figure(figsize=(10, 7))
-    for i in range(X_tsne.shape[0]):
-        plt.plot(X_tsne[i, 0], X_tsne[i, 1], marker='o', markersize=5, color=colors[Y[i]])
-    plt.xticks([])
-    plt.yticks([])
-    plt.title('t-SNE Visualization of Features')
-    plt.show()
+    # Y = np.array(labels_list)
+    Y = cluster.fit_predict(rerank_dist)  # DBSCAN
+    tsne = TSNE(
+        perplexity=30,
+        metric="euclidean",
+        n_jobs=8,
+        random_state=42,
+        verbose=True,
+    )
+    embedding_train = tsne.fit(X)  # tsne.fit(data feature)
+    utils.plot(embedding_train, Y, colors=utils.MOUSE_10X_COLORS)  # (embedding, data label, color)
+    plt.savefig('tsne.jpeg')
 
     evaluator.evaluate(test_loader, dataset.query, dataset.gallery, cmc_flag=True)
 
@@ -227,7 +240,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dataset', type=str, default='msmt17',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
     parser.add_argument('--logs-dir', type=str, metavar='PATH',
-                        default='./log/cluster_contrast_reid/msmt17_v1')  # msmt17_v1, market1501
+                        default='/home/andy/main_code/train/log/cluster_contrast_reid/msmt17_v1')  # msmt17_v1, market1501
     parser.add_argument('--gpu', type=str, default='0,1,2,3')
     parser.add_argument('-b', '--batch-size', type=int, default=1024)
     parser.add_argument('--epochs', type=int, default=80)
@@ -278,4 +291,13 @@ if __name__ == '__main__':
     # parser.add_argument('--multi-neck', default=True)
     parser.add_argument('--multi-neck', action="store_true")
     parser.add_argument('--use-hard', default=True)
+    # DBSCAN
+    parser.add_argument('--eps', type=float, default=0.7,
+                        help="max neighbor distance for DBSCAN")
+    parser.add_argument('--eps-gap', type=float, default=0.02,
+                        help="multi-scale criterion for measuring cluster reliability")
+    parser.add_argument('--k1', type=int, default=30,
+                        help="hyperparameter for jaccard distance")
+    parser.add_argument('--k2', type=int, default=6,
+                        help="hyperparameter for jaccard distance")
     main()

@@ -36,13 +36,17 @@ python ./train/evaluate.py
 
 # Visualization
 ### T-SNE visualization
+python ./train/vis_t-sne.py  
+
+Reference: https://github.com/pavlin-policar/openTSNE/tree/master  
+
 ### Attention map visualization
 python ./train/evaluate_heatmap.py  
 
 Reference: https://github.com/facebookresearch/dino/blob/main/visualize_attention.py  
 ./train/TCMM/dino-main/visualize_attention.py  
 
-Related: 
+Related:  
 ./train/evaluate_heatmap.py  
 
 ./train/TCMM/evaluators_heatmap.py:  
