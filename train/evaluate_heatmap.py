@@ -13,7 +13,7 @@ from torch import nn
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
 from TCMM import datasets, models
-from TCMM.evaluators import Evaluator
+from TCMM.evaluators_heatmap import Evaluator
 from TCMM.utils.data import IterLoader
 from TCMM.utils.data import transforms as T
 from TCMM.utils.data.sampler import RandomMultipleGallerySampler
@@ -86,6 +86,31 @@ def get_test_loader(args, dataset, height, width, batch_size, workers, testset=N
     return test_loader
 
 
+def get_query_loader(args, dataset, height, width, batch_size, workers, testset=None):
+    if args.self_norm:
+        normalizer = T.Normalize(mean=[0.5, 0.5, 0.5],
+                                 std=[0.5, 0.5, 0.5])
+    else:
+        normalizer = T.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225])
+
+    test_transformer = T.Compose([
+        T.Resize((height, width), interpolation=3),
+        T.ToTensor(),
+        normalizer
+    ])
+
+    if testset is None:
+        testset = list(set(dataset.query))
+
+    query_loader = DataLoader(
+        Preprocessor(testset, root=dataset.images_dir, transform=test_transformer),
+        batch_size=batch_size, num_workers=workers,
+        shuffle=False, pin_memory=True)
+
+    return query_loader
+
+
 def create_model(args):
     if 'resnet' in args.arch:
         model = models.create(args.arch, num_features=args.features, norm=True, dropout=args.dropout,
@@ -125,16 +150,17 @@ def main_worker(args):
     print("==> Load unlabeled dataset")
     dataset = get_data(args.dataset, args.data_dir)
     test_loader = get_test_loader(args, dataset, args.height, args.width, args.batch_size, args.workers)
+    query_loader = get_query_loader(args, dataset, args.height, args.width, args.batch_size, args.workers)
 
     # Create model
     model = create_model(args)
     # Evaluator
     evaluator = Evaluator(model)
-    print('==> Test with the best model:')
+    print('==> Visualize attention map with the best model:')
     checkpoint = load_checkpoint(osp.join(args.logs_dir, '512_K4_r0.075_outlers.pth.tar'))  # 512_K4_r0.075_outlers
     model.load_state_dict(checkpoint['state_dict'])
 
-    evaluator.evaluate(test_loader, dataset.query, dataset.gallery, cmc_flag=True)
+    evaluator.evaluate(test_loader, query_loader, dataset.query, dataset.gallery, cmc_flag=True)
 
     end_time = time.monotonic()
     print('Total running time: ', timedelta(seconds=end_time - start_time))
@@ -144,7 +170,7 @@ if __name__ == '__main__':
     working_dir = osp.dirname(osp.abspath(__file__))
     parser = argparse.ArgumentParser(description="contrastive learning on unsupervised re-ID")
     # data
-    parser.add_argument('-d', '--dataset', type=str, default='msmt17',  # msmt17, market1501
+    parser.add_argument('-d', '--dataset', type=str, default='msmt17',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
     parser.add_argument('--logs-dir', type=str, metavar='PATH',
                         default='/home/andy/main_code/train/log/cluster_contrast_reid/msmt17_v1')  # msmt17_v1, market1501
@@ -164,7 +190,7 @@ if __name__ == '__main__':
                              "each i dentity has num_instances instances, "
                              "default: 0 (NOT USE)")
     # model
-    parser.add_argument('-a', '--arch', type=str, default='vit_small',
+    parser.add_argument('-a', '--arch', type=str, default='vit_small_heatmap',
                         choices=models.names())
     parser.add_argument('--features', type=int, default=0)
     parser.add_argument('--dropout', type=float, default=0)

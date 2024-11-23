@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from .resnet import *
 from .resnet_ibn import *
 from .vision_transformer import *
+from .vision_transformer_heatmap import *
 __factory = {
     'resnet18': resnet18,
     'resnet34': resnet34,
@@ -13,6 +14,7 @@ __factory = {
     'resnet_ibn101a': resnet_ibn101a,
     'vit_small': vit_small,
     'vit_base': vit_base,
+    'vit_small_heatmap': vit_small_heatmap,
 }
 
 

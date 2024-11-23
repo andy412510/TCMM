@@ -1,10 +1,8 @@
 # Development Environment
 Linux  
 Python 3.8.17
+Pytorch
 
-# Install
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
-  
 # Donload Data
 Choose one dataset source:
 1. NAS: MVL_FTP/Dataset/Person re-id/MSMT17_V1.zip
@@ -35,3 +33,17 @@ data folder path:
 
 # Evaluate
 python ./train/evaluate.py
+
+# Visualization
+### T-SNE visualization
+### Attention map visualization
+python ./train/evaluate_heatmap.py  
+
+Reference: https://github.com/facebookresearch/dino/blob/main/visualize_attention.py
+./train/TCMM/dino-main/visualize_attention.py  
+
+Related: 
+./train/evaluate_heatmap.py  
+./train/TCMM/evaluators_heatmap.py  
+./train/TCMM/models/vision_transformer_heatmap.py  
+### Ranking list visualization

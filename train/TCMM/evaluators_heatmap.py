@@ -7,49 +7,62 @@ from .evaluation_metrics import cmc, mean_ap
 from .utils.meters import AverageMeter
 from .utils.rerank import re_ranking
 from .utils import to_torch
+### vis_actmap ###
+import torch.nn as nn
+import torchvision
+import matplotlib.pyplot as plt
+
 
 def mkdir_if_missing(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
 
-def extract_features(model, data_loader, print_freq=50, cluster_features=True):
+def vis_attention(tensor, fnames, model):
+    path = './vit_heatmap/'
+    patch_size = 16
+    for i in range(len(fnames)):
+        fname = os.path.splitext(os.path.basename(fnames[i]))[0]
+        input_tensor = tensor[i,:]
+        w, h = input_tensor.shape[1] - input_tensor.shape[1] % patch_size, input_tensor.shape[2] - input_tensor.shape[2] % patch_size
+        img = input_tensor[:, :w, :h].unsqueeze(0)
+        w_featmap = img.shape[-2] // patch_size
+        h_featmap = img.shape[-1] // patch_size
+
+        _, _, _, _, _, y = model.module.forward_features(img)
+        attentions = model.module.get_last_selfattention(y)
+        nh = attentions.shape[1]
+        attentions = attentions[0, :, 0, 5:].reshape(nh, -1)
+        attentions = attentions.reshape(nh, w_featmap, h_featmap)
+        attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=patch_size, mode="nearest")[
+            0].cpu().numpy()
+
+        # save attention0 heatmap images
+        torchvision.utils.save_image(torchvision.utils.make_grid(img, normalize=True, scale_each=True),
+                                     os.path.join(path, fname + ".png"))
+        fpath = os.path.join(path, fname + "_head" + '.png')
+        plt.imsave(fname=fpath, arr=attentions[5], format='png')
+
+
+def extract_features(model, data_loader, query_loader, print_freq=50, cluster_features=True):
     model.eval()
     batch_time = AverageMeter()
     data_time = AverageMeter()
 
     features = OrderedDict()
     labels = OrderedDict()
-    img_paths = OrderedDict()
+    img_paths = OrderedDict() #
     
     end = time.time()
 
-    with torch.no_grad():
-        #print(len(data_loader))
-        for i, (imgs, fnames, pids, camids, is_query) in enumerate(data_loader):
-            #print(data_loader)
-            data_time.update(time.time() - end)
-            imgs = to_torch(imgs).cuda()
-            outputs = model(imgs)
-            # outputs = outputs.data.cpu()  # w/o tokens
-            outputs = outputs[0].data.cpu()
-            for fname, output, pid in zip(fnames, outputs, pids):
-                features[fname] = output
-                labels[fname] = pid
-                img_paths[fname] = fname #
-
-            batch_time.update(time.time() - end)
-            end = time.time()
-
-            if (i + 1) % print_freq == 0:
-                print('Extract Features: [{}/{}]\t'
-                      'Time {:.3f} ({:.3f})\t'
-                      'Data {:.3f} ({:.3f})\t'
-                      .format(i + 1, len(data_loader),
-                              batch_time.val, batch_time.avg,
-                              data_time.val, data_time.avg))
-
-    return features, labels, img_paths
+    # ViT heatmap vis
+    for p in model.parameters():
+        p.requires_grad = False
+    for i, (imgs, fnames, _, _, is_query) in enumerate(query_loader):  # query_loader only contains query data
+        imgs = to_torch(imgs).cuda()
+        vis_attention(imgs, fnames, model)
+        print(f"batch {i} saved.")
+    # ViT heatmap vis end
 
 
 def pairwise_distance(features, query=None, gallery=None):
@@ -114,16 +127,5 @@ class Evaluator(object):
         super(Evaluator, self).__init__()
         self.model = model
 
-    def evaluate(self, data_loader, query, gallery, cmc_flag=False, rerank=False):
-        features, labels, img_paths = extract_features(self.model, data_loader, cluster_features=False) # img_paths
-        distmat, query_features, gallery_features = pairwise_distance(features, query, gallery)
-        results = evaluate_all(query_features, gallery_features, distmat, query=query, gallery=gallery, cmc_flag=cmc_flag, img_paths=img_paths)
-
-        if (not rerank):
-            return results
-
-        print('Applying person re-ranking ...')
-        distmat_qq, _, _ = pairwise_distance(features, query, query)
-        distmat_gg, _, _ = pairwise_distance(features, gallery, gallery)
-        distmat = re_ranking(distmat.numpy(), distmat_qq.numpy(), distmat_gg.numpy())
-        return evaluate_all(query_features, gallery_features, distmat, query=query, gallery=gallery, cmc_flag=cmc_flag, img_paths=img_paths)
+    def evaluate(self, data_loader, query_loader, query, gallery, cmc_flag=False, rerank=False):
+        extract_features(self.model, data_loader, query_loader, cluster_features=False)
