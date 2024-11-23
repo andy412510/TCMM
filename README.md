@@ -1,9 +1,9 @@
 # Development Environment
 Linux  
-Python 3.8.17
+Python 3.8.17  
 Pytorch
 
-# Donload Data
+# Download Data
 Choose one dataset source:
 1. NAS: MVL_FTP/Dataset/Person re-id/MSMT17_V1.zip
 2. 113: /home/andy/ICASSP_data/data/MSMT17
@@ -39,11 +39,17 @@ python ./train/evaluate.py
 ### Attention map visualization
 python ./train/evaluate_heatmap.py  
 
-Reference: https://github.com/facebookresearch/dino/blob/main/visualize_attention.py
+Reference: https://github.com/facebookresearch/dino/blob/main/visualize_attention.py  
 ./train/TCMM/dino-main/visualize_attention.py  
 
 Related: 
 ./train/evaluate_heatmap.py  
-./train/TCMM/evaluators_heatmap.py  
+
+./train/TCMM/evaluators_heatmap.py:  
+input batch data, file name list and model to vis_attention  
+https://github.com/andy412510/TCMM/blob/b206973dc8e8511ebde93323e188dd59fcd94176/train/TCMM/evaluators_heatmap.py#L63  
+follow reference work to obtain attention map, set path and patch here:  
+https://github.com/andy412510/TCMM/blob/b206973dc8e8511ebde93323e188dd59fcd94176/train/TCMM/evaluators_heatmap.py#L21  
+
 ./train/TCMM/models/vision_transformer_heatmap.py  
 ### Ranking list visualization
