@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.metrics import average_precision_score
 
 from ..utils import to_numpy
-from .vsboard import top5_plot
+from .ranking_list_vis import top5_plot
 
 def _unique_sample(ids_dict, num):
     mask = np.zeros(num, dtype=np.bool)
