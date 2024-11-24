@@ -65,4 +65,4 @@ https://github.com/andy412510/TCMM/blob/b206973dc8e8511ebde93323e188dd59fcd94176
 
 ./train/TCMM/evaluation_metrics/ranking_list_vis.py:
 Obtain ranking list visualization from reference work, set the visualization details and format here:
-https://github.com/andy412510/TCMM/blob/b206973dc8e8511ebde93323e188dd59fcd94176/train/TCMM/evaluation_metrics/ranking_list_vis.py#L23
+https://github.com/andy412510/TCMM/blob/c7c617e1224fac14418a2130594eb6318a12fa33/train/TCMM/evaluation_metrics/ranking_list_vis.py#L23
