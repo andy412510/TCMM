@@ -24,11 +24,6 @@ indices 保存的是每個 query 對應的 gallery 資料按距離（從小到�
 https://github.com/andy412510/TCMM/blob/4c5c051a49836e3017d8bf72fd762943116a6a84/train/TCMM/evaluation_metrics/ranking.py#L102  
 matches 是一個布林矩陣，表示哪些 query 和 gallery 的 ID 是 match 的
 
-這裡就是要麻煩你可視化 re-id ranking 的地方  
-把 indices 裡面對應的 query 和距離最小的五個 gallery 畫出來  
-並依照 matches 的資訊給 gallery 框框，綠框代表正確，紅框代表錯誤  
-我目前 batch size 是 2048  
-你可以設定成1說不定比較方便你實作  
 
   
 

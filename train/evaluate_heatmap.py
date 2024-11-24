@@ -178,7 +178,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch-size', type=int, default=2048)
     parser.add_argument('--epochs', type=int, default=80)
     parser.add_argument('-pp', '--pretrained-path', type=str,
-                        default='/home/andy/ICASSP_data/pretrain/PASS/pass_vit_small_full.pth')
+                        default=None)
     parser.add_argument('--data-dir', type=str, metavar='PATH',
                         default='/home/andy/ICASSP_data/data/')
     parser.add_argument('-j', '--workers', type=int, default=4)

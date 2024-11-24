@@ -327,8 +327,8 @@ class TransReID(nn.Module):
                 self.bottleneck = nn.BatchNorm1d(self.in_planes)
                 self.bottleneck.bias.requires_grad_(False)
                 self.bottleneck.apply(weights_init_kaiming)
-
-        self.load_param(pretrained_path,hw_ratio)
+        if pretrained_path is not None:
+            self.load_param(pretrained_path,hw_ratio)
 
 
     def _init_weights(self, m):

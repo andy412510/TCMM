@@ -4,15 +4,12 @@ Python 3.8.17
 Pytorch
 
 # Download Data
-Choose one dataset source:
-1. NAS: MVL_FTP/Dataset/Person re-id/MSMT17_V1.zip
-2. 113: /home/andy/ICASSP_data/data/MSMT17
+Download two datasets:  
+1. MSMT17  
+2. Market-1501  
 
-ViT pretrained:  
-https://drive.google.com/file/d/1WlZF9i_GGVbzBXurXHREYST_QUGWhBaT/view?usp=sharing
-
-TCMM pretrained:  
-https://drive.google.com/file/d/1CcLWxjS4HcDgDL0bJ1n0B3CuB9bN_p5Z/view?usp=sharing
+Download TCMM pretrained:  
+https://drive.google.com/file/d/1CcLWxjS4HcDgDL0bJ1n0B3CuB9bN_p5Z/view?usp=sharing  
 
 # Path Setting 
 ### Modify the following code to match your data path.
@@ -24,9 +21,6 @@ GPU setting:
 
 batch size setting:  
 `parser.add_argument('-b', '--batch-size', type=int, default=2048)`
-
-ViT pretrained path:  
-`parser.add_argument('-pp', '--pretrained-path', type=str, default='/home/andy/ICASSP_data/pretrain/PASS/pass_vit_small_full.pth')`
 
 data folder path:  
 `arser.add_argument('--data-dir', type=str, metavar='PATH', default='/home/andy/ICASSP_data/data/')` 

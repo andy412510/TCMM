@@ -226,7 +226,7 @@ def main_worker(args):
     )
     embedding_train = tsne.fit(X)  # tsne.fit(data feature)
     utils.plot(embedding_train, Y, colors=utils.MOUSE_10X_COLORS)  # (embedding, data label, color)
-    plt.savefig('tsne.jpeg')
+    plt.savefig('tsne.jpg')
 
     evaluator.evaluate(test_loader, dataset.query, dataset.gallery, cmc_flag=True)
 

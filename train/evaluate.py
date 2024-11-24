@@ -147,12 +147,12 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dataset', type=str, default='msmt17',  # msmt17, market1501
                         choices=datasets.names())
     parser.add_argument('--logs-dir', type=str, metavar='PATH',
-                        default='/home/andy/main_code/train/log/cluster_contrast_reid/msmt17_v1')  # msmt17_v1, market1501
+                        default='/home/andy/main_code/train/log/cluster_contrast_reid/msmt17_v1')
     parser.add_argument('--gpu', type=str, default='0,1,2,3')
     parser.add_argument('-b', '--batch-size', type=int, default=2048)
     parser.add_argument('--epochs', type=int, default=80)
     parser.add_argument('-pp', '--pretrained-path', type=str,
-                        default='/home/andy/ICASSP_data/pretrain/PASS/pass_vit_small_full.pth')
+                        default=None)
     parser.add_argument('--data-dir', type=str, metavar='PATH',
                         default='/home/andy/ICASSP_data/data/')
     parser.add_argument('-j', '--workers', type=int, default=4)

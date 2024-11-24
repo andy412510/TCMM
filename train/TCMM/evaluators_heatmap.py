@@ -37,10 +37,11 @@ def vis_attention(tensor, fnames, model):
         attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=patch_size, mode="nearest")[
             0].cpu().numpy()
 
-        # save attention0 heatmap images
+        # save attention heatmap images
         torchvision.utils.save_image(torchvision.utils.make_grid(img, normalize=True, scale_each=True),
                                      os.path.join(path, fname + ".png"))
         fpath = os.path.join(path, fname + "_head" + '.png')
+        # save last head, here nh=6, so save attentions[5]
         plt.imsave(fname=fpath, arr=attentions[5], format='png')
 
 
