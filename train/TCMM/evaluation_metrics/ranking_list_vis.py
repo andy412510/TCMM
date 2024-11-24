@@ -14,7 +14,7 @@ RED = (0, 0, 255)
 width = 128
 height = 256
 topk = 5
-query_gallery_vis_dir = "query_gallery_vis"
+query_gallery_vis_dir = "ranking_list_vis"
 
 def mkdir_if_missing(directory):
     if not os.path.exists(directory):

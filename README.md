@@ -51,3 +51,18 @@ https://github.com/andy412510/TCMM/blob/b206973dc8e8511ebde93323e188dd59fcd94176
 
 ./train/TCMM/models/vision_transformer_heatmap.py  
 ### Ranking list visualization
+This method is already integrated into the `Evaluate` program.
+
+Reference: https://github.com/KaiyangZhou/deep-person-reid/blob/master/torchreid/utils/reidtools.py
+./train/TCMM/evaluation_metrics/ranking_list_vis.py
+
+Related:
+./TCMM/evaluation_metrics/ranking.py
+
+./TCMM/evaluation_metrics/ranking.py:
+input batch id, top5 indices/matches list, query/gallery image path to top5_plot
+https://github.com/andy412510/TCMM/blob/b206973dc8e8511ebde93323e188dd59fcd94176/train/TCMM/evaluation_metrics/ranking.py#L116
+
+./train/TCMM/evaluation_metrics/ranking_list_vis.py:
+Obtain ranking list visualization from reference work, set the visualization details and format here:
+https://github.com/andy412510/TCMM/blob/b206973dc8e8511ebde93323e188dd59fcd94176/train/TCMM/evaluation_metrics/ranking_list_vis.py#L23
