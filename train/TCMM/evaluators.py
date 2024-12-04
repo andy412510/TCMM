@@ -1,22 +1,16 @@
 from __future__ import print_function, absolute_import
 import time
-import collections
 from collections import OrderedDict
-import numpy as np
 import torch
-import random
-import copy
-
+import os
 from .evaluation_metrics import cmc, mean_ap
 from .utils.meters import AverageMeter
 from .utils.rerank import re_ranking
 from .utils import to_torch
 
-
-#  def extract_cnn_feature(model, inputs):
-    #  inputs = to_torch(inputs).cuda()
-    #  outputs = model(inputs)
-    #  return outputs
+def mkdir_if_missing(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
 
 def extract_features(model, data_loader, print_freq=50, cluster_features=True):
@@ -26,25 +20,23 @@ def extract_features(model, data_loader, print_freq=50, cluster_features=True):
 
     features = OrderedDict()
     labels = OrderedDict()
+    img_paths = OrderedDict()
     
     end = time.time()
-    #print('in extracting features')
+
     with torch.no_grad():
         #print(len(data_loader))
-        for i, (imgs, fnames, pids, _, _) in enumerate(data_loader):
+        for i, (imgs, fnames, pids, camids, is_query) in enumerate(data_loader):
             #print(data_loader)
             data_time.update(time.time() - end)
             imgs = to_torch(imgs).cuda()
             outputs = model(imgs)
-            #  if cluster_features:
-                #  inv_idx = torch.arange(imgs.size(3) - 1, -1, -1).long().cuda()
-                #  imgs_flip = imgs.index_select(3, inv_idx)
-                #  outputs_flip = model(imgs_flip)
-                #  outputs = (outputs + outputs_flip)/2.0
-            outputs = outputs.data.cpu()
+            # outputs = outputs.data.cpu()  # w/o tokens
+            outputs = outputs[0].data.cpu()
             for fname, output, pid in zip(fnames, outputs, pids):
                 features[fname] = output
                 labels[fname] = pid
+                img_paths[fname] = fname #
 
             batch_time.update(time.time() - end)
             end = time.time()
@@ -57,7 +49,7 @@ def extract_features(model, data_loader, print_freq=50, cluster_features=True):
                               batch_time.val, batch_time.avg,
                               data_time.val, data_time.avg))
 
-    return features, labels
+    return features, labels, img_paths
 
 
 def pairwise_distance(features, query=None, gallery=None):
@@ -67,7 +59,7 @@ def pairwise_distance(features, query=None, gallery=None):
         x = x.view(n, -1)
         dist_m = torch.pow(x, 2).sum(dim=1, keepdim=True) * 2
         dist_m = dist_m.expand(n, n) - 2 * torch.mm(x, x.t())
-        return dist_m
+        return dist_m, x.numpy(), y.numpy(), list(features.keys())
 
     x = torch.cat([features[f].unsqueeze(0) for f, _, _ in query], 0)
     y = torch.cat([features[f].unsqueeze(0) for f, _, _ in gallery], 0)
@@ -83,7 +75,10 @@ def pairwise_distance(features, query=None, gallery=None):
 def evaluate_all(query_features, gallery_features, distmat, query=None, gallery=None,
                  query_ids=None, gallery_ids=None,
                  query_cams=None, gallery_cams=None,
-                 cmc_topk=(1, 5, 10), cmc_flag=False):
+                 cmc_topk=(1, 5, 10), cmc_flag=False, img_paths=None):
+    query_img_paths = [img_paths[q[0]] for q in query] if query else []
+    gallery_img_paths = [img_paths[g[0]] for g in gallery] if gallery else []
+
     if query is not None and gallery is not None:
         query_ids = [pid for _, pid, _ in query]
         gallery_ids = [pid for _, pid, _ in gallery]
@@ -94,7 +89,7 @@ def evaluate_all(query_features, gallery_features, distmat, query=None, gallery=
                 and query_cams is not None and gallery_cams is not None)
 
     # Compute mean AP
-    mAP = mean_ap(distmat, query_ids, gallery_ids, query_cams, gallery_cams)
+    mAP = mean_ap(distmat, query_ids, gallery_ids, query_cams, gallery_cams, query_img_paths=query_img_paths, gallery_img_paths=gallery_img_paths)
     print('Mean AP: {:4.1%}'.format(mAP))
 
     if (not cmc_flag):
@@ -120,9 +115,9 @@ class Evaluator(object):
         self.model = model
 
     def evaluate(self, data_loader, query, gallery, cmc_flag=False, rerank=False):
-        features, _ = extract_features(self.model, data_loader, cluster_features=False)
+        features, labels, img_paths = extract_features(self.model, data_loader, cluster_features=False) # img_paths
         distmat, query_features, gallery_features = pairwise_distance(features, query, gallery)
-        results = evaluate_all(query_features, gallery_features, distmat, query=query, gallery=gallery, cmc_flag=cmc_flag)
+        results = evaluate_all(query_features, gallery_features, distmat, query=query, gallery=gallery, cmc_flag=cmc_flag, img_paths=img_paths)
 
         if (not rerank):
             return results
@@ -131,4 +126,4 @@ class Evaluator(object):
         distmat_qq, _, _ = pairwise_distance(features, query, query)
         distmat_gg, _, _ = pairwise_distance(features, gallery, gallery)
         distmat = re_ranking(distmat.numpy(), distmat_qq.numpy(), distmat_gg.numpy())
-        return evaluate_all(query_features, gallery_features, distmat, query=query, gallery=gallery, cmc_flag=cmc_flag)
+        return evaluate_all(query_features, gallery_features, distmat, query=query, gallery=gallery, cmc_flag=cmc_flag, img_paths=img_paths)

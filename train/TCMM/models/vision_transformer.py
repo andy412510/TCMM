@@ -23,7 +23,6 @@ Hacked together by / Copyright 2020 Ross Wightman
 import math
 from functools import partial
 from itertools import repeat
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -176,6 +175,7 @@ class PatchEmbed_overlap(nn.Module):
         x = x.flatten(2).transpose(1, 2) # [B, 128, 384]
         return x
 
+
 class IBN(nn.Module):
     def __init__(self, planes):
         super(IBN, self).__init__()
@@ -327,8 +327,8 @@ class TransReID(nn.Module):
                 self.bottleneck = nn.BatchNorm1d(self.in_planes)
                 self.bottleneck.bias.requires_grad_(False)
                 self.bottleneck.apply(weights_init_kaiming)
-
-        self.load_param(pretrained_path,hw_ratio)
+        if pretrained_path is not None:
+            self.load_param(pretrained_path,hw_ratio)
 
 
     def _init_weights(self, m):
@@ -366,7 +366,6 @@ class TransReID(nn.Module):
         x = torch.cat((cls_tokens, part_tokens1, part_tokens2, part_tokens3, token, x), dim=1)
 
         #x = x + self.pos_embed
-
         x = x + torch.cat((self.cls_pos, self.part1_pos, self.part2_pos, self.part3_pos, self.token_pos, self.pos_embed), dim=1)
 
         x = self.pos_drop(x)
@@ -375,15 +374,14 @@ class TransReID(nn.Module):
 
         x = self.norm(x)
 
-        return x[:, 0], x[:, 1], x[:, 2], x[:, 3]
+        return x[:, 0], x[:, 1], x[:, 2], x[:, 3], x[:, 5:]
 
     def forward(self, x):
-        cls, pt1, pt2, pt3 = self.forward_features(x)
+        cls, pt1, pt2, pt3, tokens = self.forward_features(x)
 
         if self.multi_neck:
             bn_cls = self.bottleneck(cls)
             bn_cls = F.normalize(bn_cls)
-
 
             bn_pt1 = self.bottleneck_pt1(pt1)
             bn_pt1 = F.normalize(bn_pt1)
@@ -401,17 +399,32 @@ class TransReID(nn.Module):
                 return torch.cat((bn_cls, bn_pt1/3.+bn_pt2/3.+bn_pt3/3.), dim=1)
 
         else:
-            if self.feat_fusion=='mean':
+            part = pt1/3. + pt2/3. + pt3/3.
+            bn_cls_with_tokens = torch.cat((cls.unsqueeze(1), part.unsqueeze(1), tokens), dim=1)
+
+            bn = nn.BatchNorm1d(bn_cls_with_tokens.size(1))
+            bn.cuda()
+            bn.bias.requires_grad_(False)
+            bn.apply(weights_init_kaiming)
+
+            bn_cls_with_tokens = bn(bn_cls_with_tokens)
+            bn_cls_with_tokens = F.normalize(bn_cls_with_tokens)
+            bn_cls = bn_cls_with_tokens[:, 0]
+            bn_part = bn_cls_with_tokens[:, 1]
+            bn_tokens = bn_cls_with_tokens[:, 2:]
+
+            if self.feat_fusion == 'mean':
                 feat = (cls + pt1/3. + pt2/3. + pt3/3.)/2.
                 bn_feat = self.bottleneck(feat)
                 bn_feat = F.normalize(bn_feat)
-                return bn_feat
+                return bn_feat, bn_cls, bn_part, bn_tokens
 
             elif self.feat_fusion == 'cat':
                 feat = torch.cat((cls, pt1/3. + pt2/3. + pt3/3.), dim=1)
                 bn_feat = self.bottleneck(feat)
                 bn_feat = F.normalize(bn_feat)
-                return bn_feat
+                return bn_feat, bn_cls, bn_part, bn_tokens
+                # return bn_feat
 
 
         '''

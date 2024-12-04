@@ -5,30 +5,30 @@ import os.path as osp
 import random
 import numpy as np
 import sys
-import collections
 import time
 from datetime import timedelta
 import os
+from collections import OrderedDict, Counter
 from sklearn.cluster import DBSCAN
-import pandas as pd
+from sklearn.manifold import TSNE
 import torch
 from torch import nn
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
+from TCMM.utils import to_torch
+from TCMM import datasets, models
+from TCMM.evaluators import Evaluator
+from TCMM.utils.data import IterLoader
+from TCMM.utils.data import transforms as T
+from TCMM.utils.data.sampler import RandomMultipleGallerySampler
+from TCMM.utils.data.preprocessor import Preprocessor
+from TCMM.utils.logging import Logger
+from TCMM.utils.serialization import load_checkpoint, save_checkpoint
+from TCMM.utils.faiss_rerank import compute_jaccard_distance
 
-from my import datasets, models
-from my.models.cm import ClusterMemory
-from my.trainers import Trainer
-from my.evaluators import Evaluator, extract_features
-from my.utils.data import IterLoader
-from my.utils.data import transforms as T
-from my.utils.data.sampler import RandomMultipleGallerySampler
-from my.utils.data.preprocessor import Preprocessor
-from my.utils.logging import Logger
-from my.utils.serialization import load_checkpoint, save_checkpoint
-from my.utils.faiss_rerank import compute_jaccard_distance
-print('main')
+from openTSNE import TSNE
+import matplotlib.pyplot as plt
+from examples import utils
 start_epoch = best_mAP = 0
 
 
@@ -108,9 +108,66 @@ def create_model(args):
     return model
 
 
+def extract_features(model, data_loader, print_freq=50, cluster_features=True):
+    # value: 1201, count number: 193
+    # value: 2088, count number: 188
+    # value: 702, count number: 168
+    # value: 557, count number: 162
+    # value: 1153, count number: 151
+    # value: 1885, count number: 150
+    # value: 411, count number: 148
+    # value: 2710, count number: 134
+    # value: 1186, count number: 134
+    # value: 1461, count number: 134
+    # value: 1896, count number: 132
+    # value: 1895, count number: 132
+    # value: 1660, count number: 132
+    # value: 1606, count number: 130
+    # value: 1561, count number: 130
+    # value: 1615, count number: 129
+    # value: 715, count number: 127
+    # value: 3045, count number: 127
+    # value: 2287, count number: 126
+    # value: 2608, count number: 125
+    model.eval()
+    features = OrderedDict()
+    labels = OrderedDict()
+    select_features = OrderedDict()
+    select_labels = OrderedDict()
+    with torch.no_grad():
+        for i, (imgs, fnames, pids, _, _) in enumerate(data_loader):
+            # test data feature extract
+            imgs = to_torch(imgs).cuda()
+            outputs = model(imgs)
+            outputs = outputs[0].data.cpu()
+            for fname, output, pid in zip(fnames, outputs, pids):
+                features[fname] = output
+                labels[fname] = pid  # file name = label
+        for key, value in labels.items():
+            if value.item() in [1201, 2088, 1153, 411, 2710, 1186]:  # 1201, 2088, 557, 1153, 411
+                select_features[key] = features[key]
+                # select_labels[key] = value
+                if value.item() == 1201:
+                    select_labels[key] = torch.tensor(0)
+                elif value.item() == 2088:
+                    select_labels[key] = torch.tensor(1)
+                elif value.item() == 557:
+                    select_labels[key] = torch.tensor(2)
+                elif value.item() == 1153:
+                    select_labels[key] = torch.tensor(3)
+                elif value.item() == 411:
+                    select_labels[key] = torch.tensor(4)
+                elif value.item() == 2710:
+                    select_labels[key] = torch.tensor(5)
+                elif value.item() == 1186:
+                    select_labels[key] = torch.tensor(6)
+                elif value.item() == 1461:
+                    select_labels[key] = torch.tensor(7)
+
+    return select_features, select_labels
+
 def main():
     args = parser.parse_args()
-
     if args.seed is not None:
         random.seed(args.seed)
         np.random.seed(args.seed)
@@ -141,114 +198,36 @@ def main_worker(args):
 
     # Evaluator
     evaluator = Evaluator(model)
+    print('==> Test with the best model:')
+    checkpoint = load_checkpoint(osp.join(args.logs_dir, '512_K4_r0.075_outlers.pth.tar'))  # 512_K4_r0.075_outlers
+    model.load_state_dict(checkpoint['state_dict'])
 
-    # Optimizer
-    params = [{"params": [value]} for _, value in model.named_parameters() if value.requires_grad]
-    print('optimizer: %s'%(args.optimizer))
-    if args.optimizer == 'Adam':
-        optimizer = torch.optim.Adam(params, lr=args.lr, weight_decay=args.weight_decay)
-    if args.optimizer == 'AdamW':
-        optimizer = torch.optim.AdamW(params, lr=args.lr, weight_decay=args.weight_decay)
-    elif args.optimizer == 'SGD':
-        optimizer = torch.optim.SGD(params, lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=0.1)
-
-    # Trainer
-    trainer = Trainer(model)
-    print('==> Initialize features memory')
-    feature_memory = ClusterMemory(model.module.num_features, len(dataset.train), temp=args.temp,
-                                   momentum=args.momentum, use_hard=args.use_hard).cuda()
-    cluster_loader = get_test_loader(args, dataset, args.height, args.width,
-                                     args.batch_size, args.workers, testset=sorted(dataset.train))
-
-    # create index corresponding dic
-    index_dic = {}
-    for it, data in enumerate(cluster_loader):
-        _, path_list, _, _, indexes = data
-        for m in range(len(path_list)):
-            file_path = path_list[m]
-            file_name = file_path.split('/')[-1]
-            index_dic[file_name] = indexes[m]
-
-    features, _ = extract_features(model, cluster_loader, print_freq=50)
-    features = torch.cat([features[f].unsqueeze(0) for f, _, _ in sorted(dataset.train)], 0)
-    feature_memory.features = F.normalize(features, dim=1).cuda()
-    trainer.feature_memory = feature_memory
+    # get features
+    select_features, select_labels = extract_features(model, test_loader, cluster_features=False)
+    features_list = torch.stack([value for value in select_features.values()])
+    labels_list = [value.item() for value in select_labels.values()]
     # DBSCAN cluster init
     eps = args.eps
     print('Clustering criterion: eps: {:.3f}'.format(eps))
     cluster = DBSCAN(eps=eps, min_samples=4, metric='precomputed', n_jobs=-1)
-    for epoch in range(args.epochs):
-        with torch.no_grad():
-            print('==> Create pseudo labels for unlabeled data')
-            features, _ = extract_features(model, cluster_loader, print_freq=50)
-            features = torch.cat([features[f].unsqueeze(0) for f, _, _ in sorted(dataset.train)], 0)
-            rerank_dist = compute_jaccard_distance(features, k1=args.k1, k2=args.k2)
-            # select & cluster images as training set of this epochs
-            pseudo_labels = cluster.fit_predict(rerank_dist)
-            feature_memory.labels = torch.Tensor(pseudo_labels).cuda()
-            num_cluster = len(set(pseudo_labels)) - (1 if -1 in pseudo_labels else 0)
+    rerank_dist = compute_jaccard_distance(features_list, k1=args.k1, k2=args.k2)
 
-        # generate new dataset and calculate cluster centers
-        @torch.no_grad()
-        def generate_cluster_features(labels, features):
-            centers = collections.defaultdict(list)
-            for i, label in enumerate(labels):
-                if label == -1:
-                    continue
-                centers[labels[i]].append(features[i])
 
-            centers = [
-                torch.stack(centers[idx], dim=0).mean(0) for idx in sorted(centers.keys())
-            ]
+    # t-SNE
+    X = np.array(features_list)
+    # Y = np.array(labels_list)
+    Y = cluster.fit_predict(rerank_dist)  # DBSCAN
+    tsne = TSNE(
+        perplexity=30,
+        metric="euclidean",
+        n_jobs=8,
+        random_state=42,
+        verbose=True,
+    )
+    embedding_train = tsne.fit(X)  # tsne.fit(data feature)
+    utils.plot(embedding_train, Y, colors=utils.MOUSE_10X_COLORS)  # (embedding, data label, color)
+    plt.savefig('tsne.jpg')
 
-            centers = torch.stack(centers, dim=0)
-            return centers
-
-        cluster_features = generate_cluster_features(pseudo_labels, features)
-        del features
-
-        # Create ClusterMemory
-        memory = ClusterMemory(model.module.num_features, num_cluster, temp=args.temp,
-                               momentum=args.momentum, use_hard=args.use_hard).cuda()
-        memory.features = F.normalize(cluster_features, dim=1).cuda()
-
-        trainer.memory = memory
-
-        pseudo_labeled_dataset = []
-        for i, ((fname, _, cid), label) in enumerate(zip(sorted(dataset.train), pseudo_labels)):
-            if label != -1:
-                pseudo_labeled_dataset.append((fname, label.item(), cid))
-
-        print('==> Statistics for epoch {}: {} clusters'.format(epoch, num_cluster))
-
-        train_loader = get_train_loader(args, dataset, args.height, args.width,
-                                        args.batch_size, args.workers, args.num_instances, iters,
-                                        trainset=pseudo_labeled_dataset)
-
-        train_loader.new_epoch()
-
-        trainer.train(epoch, train_loader, optimizer, args.K, index_dic=index_dic,
-                      print_freq=args.print_freq, train_iters=len(train_loader))
-
-        if (epoch + 1) % args.eval_step == 0 or (epoch == args.epochs - 1):
-            mAP = evaluator.evaluate(test_loader, dataset.query, dataset.gallery, cmc_flag=False)
-            is_best = (mAP > best_mAP)
-            best_mAP = max(mAP, best_mAP)
-            save_checkpoint({
-                'state_dict': model.state_dict(),
-                'epoch': epoch + 1,
-                'best_mAP': best_mAP,
-            }, is_best, fpath=osp.join(args.logs_dir, 'checkpoint.pth.tar'))
-
-            print('\n * Finished epoch {:3d}  model mAP: {:5.1%}  best: {:5.1%}{}\n'.
-                  format(epoch, mAP, best_mAP, ' *' if is_best else ''))
-
-        lr_scheduler.step()
-
-    print('==> Test with the best model:')
-    checkpoint = load_checkpoint(osp.join(args.logs_dir, 'model_best.pth.tar'))
-    model.load_state_dict(checkpoint['state_dict'])
     evaluator.evaluate(test_loader, dataset.query, dataset.gallery, cmc_flag=True)
 
     end_time = time.monotonic()
@@ -258,13 +237,17 @@ def main_worker(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="contrastive learning on unsupervised re-ID")
     # data
-    parser.add_argument('-d', '--dataset', type=str, default='market1501',  # msmt17, msmt17_v2, market1501
+    parser.add_argument('-d', '--dataset', type=str, default='msmt17',  # msmt17, msmt17_v2, market1501
                         choices=datasets.names())
-    parser.add_argument('--gpu', type=str, default='4,5,6,7')
-    parser.add_argument('-b', '--batch-size', type=int, default=512)
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--logs-dir', type=str, metavar='PATH',
+                        default='/home/andy/main_code/train/log/cluster_contrast_reid/msmt17_v1')  # msmt17_v1, market1501
+    parser.add_argument('--gpu', type=str, default='0,1,2,3')
+    parser.add_argument('-b', '--batch-size', type=int, default=1024)
+    parser.add_argument('--epochs', type=int, default=80)
     parser.add_argument('-j', '--workers', type=int, default=4)
     parser.add_argument('-K', type=int, default=8, help="negative samples number for instance memory")
+    parser.add_argument('--patch-rate', type=float, default=0.025, help="noise patch rate for patch refine")
+    parser.add_argument('--positive-rate', type=int, default=3, help="positive sample number for patch refine")
     parser.add_argument('--height', type=int, default=256, help="input height")
     parser.add_argument('--width', type=int, default=128, help="input width")
     parser.add_argument('--num-instances', type=int, default=8,
@@ -272,16 +255,6 @@ if __name__ == '__main__':
                              "(batch_size // num_instances) identities, and "
                              "each i dentity has num_instances instances, "
                              "default: 0 (NOT USE)")
-    # DBSCAN
-    parser.add_argument('--eps', type=float, default=0.7,
-                        help="max neighbor distance for DBSCAN")
-    parser.add_argument('--eps-gap', type=float, default=0.02,
-                        help="multi-scale criterion for measuring cluster reliability")
-    parser.add_argument('--k1', type=int, default=30,
-                        help="hyperparameter for jaccard distance")
-    parser.add_argument('--k2', type=int, default=6,
-                        help="hyperparameter for jaccard distance")
-
     # model
     parser.add_argument('-a', '--arch', type=str, default='vit_small',
                         choices=models.names())
@@ -312,11 +285,19 @@ if __name__ == '__main__':
     working_dir = osp.dirname(osp.abspath(__file__))
     parser.add_argument('--data-dir', type=str, metavar='PATH',
                         default='/home/andy/ICASSP_data/data/')
-    parser.add_argument('--logs-dir', type=str, metavar='PATH',
-                        default='./log/cluster_contrast_reid/market1501/pass_vit_small_full_1')  # msmt17_v2, market1501
+
     parser.add_argument('--pooling-type', type=str, default='gem')
     parser.add_argument('--feat-fusion', type=str, default='cat')
     # parser.add_argument('--multi-neck', default=True)
     parser.add_argument('--multi-neck', action="store_true")
     parser.add_argument('--use-hard', default=True)
+    # DBSCAN
+    parser.add_argument('--eps', type=float, default=0.7,
+                        help="max neighbor distance for DBSCAN")
+    parser.add_argument('--eps-gap', type=float, default=0.02,
+                        help="multi-scale criterion for measuring cluster reliability")
+    parser.add_argument('--k1', type=int, default=30,
+                        help="hyperparameter for jaccard distance")
+    parser.add_argument('--k2', type=int, default=6,
+                        help="hyperparameter for jaccard distance")
     main()
